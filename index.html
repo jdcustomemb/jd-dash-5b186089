@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="J&D Trading"><meta name="theme-color" content="#0f172a"><title>J&D Trading Dashboard</title>
+<style>body{font-family:-apple-system,Segoe UI,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:0 18px 30px;max-width:1100px;margin:auto}
+.banner{background:#334155;padding:8px 14px;margin:0 -18px 14px;font-weight:700}.s{color:#94a3b8;font-size:13px}
+h1{font-size:20px;margin:6px 0}h2{font-size:17px;margin:26px 0 8px;padding:6px 10px;border-radius:8px}
+h2.live{background:#7f1d1d}h2.merged{background:#1e3a8a}h2.tests{background:#3f3f46}h2.exp{background:#422006}
+.card{background:#1e293b;border-radius:10px;padding:12px;margin:8px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.k{color:#94a3b8;font-size:12px}.v{font-size:20px;font-weight:700}.pos{color:#4ade80}.neg{color:#f87171}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:4px 6px;border-bottom:1px solid #334155;text-align:left}.tw{overflow-x:auto}
+.tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700}.on{background:#166534}.off{background:#7f1d1d}
+svg{width:100%;height:160px}#pos,#trades,#ktr,#kpos{overflow-x:auto;-webkit-overflow-scrolling:touch}table{min-width:560px}
+@media(max-width:600px){body{padding:0 10px 24px}.banner{font-size:15px;margin:0 -10px 12px}.grid{grid-template-columns:1fr 1fr;gap:8px}.v{font-size:18px}.chartbox{height:220px}h2{font-size:15px}}
+#gate{position:fixed;inset:0;background:#0f172a;display:flex;align-items:center;justify-content:center;z-index:9}#gate form{background:#1e293b;padding:24px;border-radius:12px;width:min(320px,88vw)}
+#gate input{width:100%;box-sizing:border-box;padding:12px;font-size:16px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;margin:10px 0}#gate button{width:100%;padding:12px;font-size:16px;border:0;border-radius:8px;background:#b45309;color:#fff;font-weight:700}</style></head><body>
+<div id="gate"><form onsubmit="unlock(event)"><div style="font-weight:800">J&amp;D paper trading</div><div class="s">PAPER TRADING, NO REAL MONEY. Enter password.</div><input id="pw" type="password" autocomplete="current-password" autofocus><button>Unlock</button><div class="s neg" id="err"></div></form></div><div class="banner">J&amp;D Trading: LIVE MONEY at top (real), everything else is PAPER</div>
+<h1>Trading dashboard</h1><div class="s" id="upd"></div>
+<h2 class="live">LIVE MONEY</h2><div id="live"></div>
+<h2 class="merged">MERGED PAPER BOT (fake $10,000)</h2><div id="merged"></div>
+<h2 class="tests">TESTS (paper)</h2><div id="tests"></div>
+<h2 class="exp">EXPERIMENTS (paper, unproven, not part of merged capital)</h2><div id="exp"></div>
+<script>
+const EMBED=/*EMBED*/null;
+const $=(n,d=2)=>n==null||isNaN(n)?'–':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const P=(n)=>n==null||isNaN(n)?'–':`<span class="${n>=0?'pos':'neg'}">${n>=0?'+':''}${Number(n).toFixed(2)}%</span>`;
+const st=(r)=>`<span class="tag ${r?'on':'off'}">${r?'RUNNING':'STOPPED'}</span>`;
+const kv=(a)=>'<div class="grid">'+a.map(([k,v])=>`<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')+'</div>';
+const tbl=(h,rows)=>rows.length?`<div class="tw"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}</table></div>`:'<div class="s">none</div>';
+function spark(h){if(!h||h.length<2)return '<div class="s">Equity chart starts after a few daily closes.</div>';const v=h.map(x=>x.e),mn=Math.min(...v),mx=Math.max(...v),w=1000,ht=150;
+ const pts=v.map((y,i)=>`${i/(v.length-1)*w},${ht-(y-mn)/((mx-mn)||1)*(ht-10)-5}`).join(' ');return `<svg viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none"><polyline fill="none" stroke="#38bdf8" stroke-width="3" points="${pts}"/></svg>`}
+function render(d){
+ document.getElementById('upd').textContent='Last update: '+d.updated_pt;
+ let h='';const L=d.live;
+ if(L){const w=L.window||{};h+=`<div class="card"><b>Coinbase crypto bot</b> ${st(L.running)} ${L.kill?'<span class="tag off">KILL FILE</span>':''}<div class="s">${L.settings||''}</div>`+
+  kv([['Equity',$(L.equity)],['Since start',P((L.equity/L.start-1)*100)],['Cash',$(L.usd)],['Fees paid',$(L.fees)],['Wins/losses',`${L.n?Math.round(L.win)+'% of '+L.n:'–'}`],['72h goal (+25%)',w.goal_eq?`${$(w.now_eq)} → ${$(w.goal_eq)}`:'–']])+
+  tbl(['Coin','Qty','Value'],Object.entries(L.holdings||{}).map(([c,x])=>[c,x.qty,$(x.value)]))+
+  '<div class="k" style="margin-top:6px">Recent trades</div>'+tbl(['Time (PT)','Side','Coin','Status','Filled $','P&L'],(L.trades||[]).slice(0,6).map(t=>[new Date(t.time_utc).toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),t.side,t.product,t.status,$(+t.filled_value),t.pnl?$(+t.pnl):'']))+'</div>';}
+ const A=d.alive;
+ if(A){h+=`<div class="card"><b>Alpaca stock desk</b> ${st(A.running)} ${A.killed||A.kill?'<span class="tag off">KILLED</span>':''}`+
+  kv([['Equity',$(A.equity)],['Since start',P((A.equity/A.start-1)*100)],['Cash (settled)',$(A.cash)],['Unsettled',$(A.unsettled)],['Trades',A.trades??'–'],['Wins/losses',`${A.wins??0}/${A.losses??0}`],['Health',A.health||'–']])+
+  tbl(['Symbol','Details'],Object.entries(A.positions||{}).map(([s,p])=>[s,typeof p=='object'?Object.entries(p).slice(0,5).map(([k,v])=>k+': '+(typeof v=='number'?v.toFixed(2):v)).join(', '):p]))+'</div>';}
+ if(L&&A&&L.equity!=null&&A.equity!=null){const s=L.start+A.start,e=L.equity+A.equity;h+=`<div class="card">${kv([['Total real money',$(e)],['Real P&L',$(e-s)+' '+P((e/s-1)*100)]])}</div>`}
+ document.getElementById('live').innerHTML=h||'<div class="s">no data</div>';
+ const M=d.merged;h='';
+ if(M){const bt=M.backtest||{};h=`<div class="card">${st(M.running)} ${M.killed?'<span class="tag off">KILL SWITCH ON until '+M.kill_until+'</span>':''}<div class="s">Simulated ledger only, no orders anywhere. Decides at the close, fills at the next open. Weights: core ${M.weights.core*100}% / dip ${M.weights.dip*100}% / BTC ${M.weights.btc*100}%. Kill switch at −${M.kill_dd}% from peak.</div>`+
+  kv([['Equity',$(M.equity)],['Since start',P(M.ret)],['$150 view',$(M.scaled150)],['From peak',P(M.dd)],['Fees',$(M.fees)],['Fills',M.fills]])+spark(M.hist)+
+  tbl(['Sleeve','Value','Target today'],Object.entries(M.sleeves).map(([k,v])=>[k,$(v),k=='btc'?('BTC '+Math.round((M.target_btc||0)*100)+'%'):Object.entries((M.targets||{})[k]||{}).map(([a,w])=>a+' '+Math.round(w*100)+'%').join(', ')]))+
+  '<div class="k" style="margin-top:6px">Holdings</div>'+tbl(['Sleeve','Asset','Qty','Value'],M.positions.map(p=>[p.sleeve,p.asset,Number(p.qty).toFixed(4),$(p.value)]))+
+  '<div class="k" style="margin-top:6px">Expected vs actual (daily)</div>'+tbl(['Date','Portfolio actual','Expected avg day'],(M.tracking||[]).map(t=>[t.date,P(t.portfolio_actual*100),P(t.portfolio_expected*100)]))+
+  '<div class="k" style="margin-top:6px">Recent fills (fill vs decision-close price)</div>'+tbl(['Time','Sleeve','Side','Asset','Fill','Slip'],(M.recent_fills||[]).slice(0,10).map(f=>[f.ts.slice(5,16),f.sleeve,f.side,f.asset,$(f.fill_px),f.slip_pct==null?'–':P(f.slip_pct)]))+
+  `<div class="s" style="margin-top:8px">Backtest: 2007–2026 ${bt.full?.cagr}%/yr, worst drop ${bt.full?.mdd}% · since 2018 ${bt.since2018?.cagr}%/yr · 2022–2026 out-of-sample ${bt.oos2022?.cagr}%/yr (${bt.oos2022?.mdd}%) · $150 over last 2 yrs → ${$(bt.sim150?.end)} (SPY ${$(bt.spy150?.end)}, QQQ ${$(bt.qqq150?.end)})</div><div class="s" style="margin-top:6px">Oct 14 add-on tests (fees, tuned pre-2016, judged 2016–2026): risk dial, earnings-drift list, insider-buying list and 200-day QQQ band all tested — none improved the bot on unseen years, so rules unchanged.</div></div>`}
+ document.getElementById('merged').innerHTML=h||'<div class="s">no data</div>';
+ const T=d.tests||{};h='';
+ if(T.twokey){const t=T.twokey;h+=`<div class="card"><b>Two-key crypto bot</b> ${st(t.running)}<div class="s">7-day paper test, ends ${t.ends}. Review the log before any live use.</div>`+kv([['Equity',$(t.equity)],['Since start',P((t.equity/t.start-1)*100)],['Model checks',t.jev_calls],['Approved/vetoed',`${t.approvals}/${t.vetoes}`],['Wins/losses',`${t.wins}/${t.losses}`]])+'</div>'}
+ if(T.desk){const t=T.desk;h+=`<div class="card"><b>Reset 150 desk</b> ${st(t.running)}<div class="s">Side-by-side copy of the live Alpaca desk rules, on the Alpaca paper account.</div>`+kv([['Equity',$(t.equity)],['Since start',P((t.equity/t.start-1)*100)],['Trades',t.trades],['Wins/losses',`${t.wins}/${t.losses}`],['Health',t.health]])+'</div>'}
+ document.getElementById('tests').innerHTML=h||'<div class="s">no data</div>';
+ const E=d.experiments||{};h='';
+ if(E.meme){const m=E.meme;h+=`<div class="card"><b>Meme coin pump scanner</b> ${st(m.running)}<div class="s">Scans every ${m.every}. Fake $1,000.</div>`+kv([['Equity',$(m.equity)],['Scans',m.scans],['Open',m.open],['Closed',m.closed],['Wins',m.wins]])+'</div>'}
+ if(E.kraken){const k=E.kraken,K=k.kraken||{},C=k.coinbase||{};h+=`<div class="card"><b>Kraken fee test (paper)</b> ${st(k.running)}<div class="s">168h breakout + BTC/ETH SMA50 trend at Kraken fees (0.40% maker / 0.80% taker). Fake $1,000. Go-live test: 30 days.${k.halted?' KILL SWITCH HIT.':''}</div>`+kv([['Equity (Kraken fees)',$(K.equity)],['$150 view',$(K.view150)],['Same trades at Coinbase fees',$(C.equity)],['BTC hold',$(k.btc_hold_equity)],['Open',Object.keys(K.positions||{}).join(', ')||'none'],['Closed trades',K.trades],['Fees paid',$(K.fees)]])+'</div>'}
+if(E.arb){const a=E.arb;h+=`<div class="card"><b>Arbitrage scanner (6 exchanges)</b> ${st(a.running)}<div class="s">Scans every ${a.every}. Only trades when the gap beats all fees.</div>`+kv([['Scans',a.scans],['Price gaps seen',a.gross_gaps],['Gaps beating fees',a.net_pos],['Trades',a.trades],['Realized',$(a.realized)]])+'</div>'}
+ document.getElementById('exp').innerHTML=h||'<div class="s">no data</div>';
+}
+async function load(){try{render(await getData())}catch(e){document.getElementById('upd').textContent='Load error: '+e}}
+
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));let KEY=null;
+async function derive(pw,e){const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(e.salt),iterations:e.iter,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['decrypt'])}
+async function getData(){const e=await (await fetch('data.enc.json?'+Date.now(),{cache:'no-store'})).json();const pw=localStorage.getItem('jdpw');const k=await derive(pw,e);
+ return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(e.iv)},k,b64(e.ct))))}
+async function unlock(ev){if(ev)ev.preventDefault();const v=ev?document.getElementById('pw').value:localStorage.getItem('jdpw');if(!v)return;localStorage.setItem('jdpw',v);
+ try{render(await getData());document.getElementById('gate').style.display='none';if(!window._t)window._t=setInterval(load,60000)}catch(x){localStorage.removeItem('jdpw');document.getElementById('err').textContent='Wrong password'}}
+if(localStorage.getItem('jdpw'))unlock();
+</script></body></html>
